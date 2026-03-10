@@ -4,7 +4,7 @@
 
 ---
 
-## 🇬🇧 English
+## 🇬🇧 English (Russian is lower)
 
 ### What is this?
 
