@@ -1,0 +1,5 @@
+pyrofork
+tgcrypto-pyrofork
+qrcode
+pillow
+pyinstaller
