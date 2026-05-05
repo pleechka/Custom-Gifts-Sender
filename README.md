@@ -14,11 +14,12 @@
 
 - 🎄 Built-in gift menu with popular gifts (New Year Tree, Teddy Bear, Valentine's Heart and more)
 - ✏️ Custom Gift ID support — send any gift by its ID
-- 📱 Two login methods: **phone number** or **QR code** (opens a popup window)
+- 📱 Two login methods: **phone number** or **QR code**
 - 🕵️ Anonymous mode — hide your name from the recipient
 - 💌 Message support with a live **128-character counter**
 - 💾 Settings are saved to `config.json` — no need to re-enter API credentials on next launch
-- 📦 Can be compiled to a standalone `.exe` — no Python required on the target machine
+
+
 
 ### Requirements
 
@@ -76,7 +77,7 @@ The ready `.exe` will be in the `dist/` folder. Place `config.json` and the `.se
 
 ### Что это?
 
-**Custom Gifts Sender** — консольное приложение для Windows, которое позволяет отправлять Telegram Star Gifts любому пользователю прямо с компьютера. Без ботов и сторонних сервисов — работает через официальный Telegram API с вашего аккаунта.
+**Custom Gifts Sender** — консольное приложение для Windows, которое позволяет отправлять Telegram Star Gifts любому пользователю . Без ботов и сторонних сервисов — работает через официальный Telegram API с вашего аккаунта.
 
 ### Возможности
 
@@ -86,7 +87,6 @@ The ready `.exe` will be in the `dist/` folder. Place `config.json` and the `.se
 - 🕵️ Анонимный режим — скройте своё имя от получателя
 - 💌 Поддержка сообщения с живым счётчиком на **128 символов**
 - 💾 Настройки сохраняются в `config.json` — не нужно вводить API-данные при каждом запуске
-- 📦 Компилируется в `.exe` — не требует Python на целевой машине
 
 ### Требования
 
@@ -136,7 +136,7 @@ pyinstaller --onefile --console ^
 
 - `config.json` — хранит ваши API-ключи (не передавайте посторонним)
 - `*.session` — файл сессии Telegram (не передавайте посторонним)
-- Оба файла создаются автоматически при первом запуске рядом со скриптом / `.exe`
+- Оба файла создаются автоматически при первом запуске в аппдата
 
 ---
 
