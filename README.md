@@ -1,10 +1,6 @@
 # 🎁 Custom Gifts Sender
 
-> Send Telegram Star Gifts to any user — with a gift menu, QR login, anonymous mode and message support.
-
 ---
-
-## 🇬🇧 English (Russian is lower)
 
 ### What is this?
 
@@ -70,73 +66,6 @@ The ready `.exe` will be in the `dist/` folder. Place `config.json` and the `.se
 - `config.json` — stores your API credentials (keep it private, don't share)
 - `*.session` — your Telegram session file (keep it private, don't share)
 - Both files are created automatically on first run next to the script / `.exe`
-
----
-
-## 🇷🇺 Русский
-
-### Что это?
-
-**Custom Gifts Sender** — консольное приложение для Windows, которое позволяет отправлять Telegram Star Gifts любому пользователю . Без ботов и сторонних сервисов — работает через официальный Telegram API с вашего аккаунта.
-
-### Возможности
-
-- 🎄 Встроенное меню подарков с популярными подарками (Новогодняя елка, Мишка, Сердце и другие)
-- ✏️ Поддержка кастомного Gift ID — отправьте любой подарок по его ID
-- 📱 Два способа входа: **по номеру телефона** или **по QR-коду** (открывается отдельное окно)
-- 🕵️ Анонимный режим — скройте своё имя от получателя
-- 💌 Поддержка сообщения с живым счётчиком на **128 символов**
-- 💾 Настройки сохраняются в `config.json` — не нужно вводить API-данные при каждом запуске
-
-### Требования
-
-- Windows 10/11
-- Python 3.10+ (только для запуска из исходников)
-- Аккаунт Telegram
-- API-ключи с [my.telegram.org](https://my.telegram.org)
-
-### Установка и запуск
-
-```bash
-# 1. Клонировать репозиторий
-git clone https://github.com/YOUR_USERNAME/Custom-Gifts-Sender.git
-cd Custom-Gifts-Sender
-
-# 2. Установить зависимости
-pip install -r requirements.txt
-
-# 3. Запустить
-python gift_sender.py
-```
-
-### Сборка EXE
-
-```bash
-pyinstaller --onefile --console ^
-  --hidden-import pyrogram ^
-  --hidden-import qrcode ^
-  --hidden-import PIL ^
-  --hidden-import tkinter ^
-  --collect-all pyrogram ^
-  --collect-all qrcode ^
-  gift_sender.py
-```
-
-Готовый `.exe` будет в папке `dist/`. При следующих запусках положите рядом `config.json` и файл `.session`.
-
-### Как получить API-ключи
-
-1. Зайдите на [my.telegram.org](https://my.telegram.org)
-2. Войдите через свой номер телефона
-3. Нажмите **API development tools**
-4. Создайте приложение (название любое)
-5. Скопируйте `App api_id` и `App api_hash`
-
-### Важные файлы
-
-- `config.json` — хранит ваши API-ключи (не передавайте посторонним)
-- `*.session` — файл сессии Telegram (не передавайте посторонним)
-- Оба файла создаются автоматически при первом запуске в аппдата
 
 ---
 
