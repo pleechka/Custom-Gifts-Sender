@@ -4,12 +4,20 @@ import os
 import json
 import msvcrt
 
+
 APP_NAME      = "TelegramGiftSender"
 APPDATA_DIR   = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), APP_NAME)
 CONFIG_FILE   = os.path.join(APPDATA_DIR, "config.json")
 MAX_MSG_LEN   = 128
 
+BACK_TOKENS = {"0", "back", "назад", "b", "н"}
+
 os.makedirs(APPDATA_DIR, exist_ok=True)
+
+
+def is_back(s: str) -> bool:
+    return s.strip().lower() in BACK_TOKENS
+
 
 STRINGS = {
     "ru": {
@@ -17,9 +25,9 @@ STRINGS = {
         "choose_lang":       "🌐 Язык / Language:\n   1) Русский\n   2) English\n",
         "lang_prompt":       "Выберите (1/2): ",
         "gifts_title":       "📋 ВЫБЕРИТЕ ПОДАРОК",
-        "gifts_custom_id":   "✏️  Введите Gift ID: ",
+        "gifts_custom_id":   "✏️  Введите Gift ID (0 — назад): ",
         "gifts_invalid_id":  "❌ ID должен содержать только цифры.",
-        "gifts_prompt":      "🎁 Номер подарка (1–{n}): ",
+        "gifts_prompt":      "🎁 Номер подарка (1–{n}, 0/Enter — отмена): ",
         "gifts_invalid":     "❌ Введите число от 1 до {n}.",
         "gifts_selected":    "   ✅ Выбран: {emoji} {name}",
         "login_title":       "📡 ВХОД В АККАУНТ",
@@ -33,16 +41,16 @@ STRINGS = {
         "logged_as":         "✅ Вы вошли как: ",
         "recipient_title":   "📋 ПОЛУЧАТЕЛЬ",
         "recipient_hint":    "ℹ️  Username без @ или номер телефона (+79001234567).",
+        "recipient_back":    "↩️  Enter или 0 — назад, к выбору подарка.",
         "recipient_prompt":  "👤 Получатель: ",
         "recipient_search":  "🔍 Поиск: {r} ...",
         "recipient_found":   "✅ Найден: ",
-        "recipient_err":     "❌ Пользователь '{r}' не найден: {e}",
         "recipient_tip":     "   Проверьте username или сначала напишите ему в Telegram.",
-        "msg_title":         "📋 СООБЩЕНИЕ К ПОДАРКУ  (необязательно, Enter — пропустить)",
+        "msg_title":         "📋 СООБЩЕНИЕ К ПОДАРКУ  (Enter — пропустить, 0 — назад)",
         "msg_prompt":        "💌 Сообщение: ",
         "anon_title":        "📋 АНОНИМНОСТЬ",
         "anon_hint":         "ℹ️  Скрыть своё имя у получателя?",
-        "anon_prompt":       "🕵️  Анонимно? (yes/no, Enter = нет): ",
+        "anon_prompt":       "🕵️  Анонимно? (yes/no, Enter = нет, 0 = назад): ",
         "confirm_title":     "✅ ПРОВЕРЬТЕ ДАННЫЕ",
         "confirm_gift":      "🎁 Подарок:    ",
         "confirm_rcpt":      "📤 Получатель: ",
@@ -51,17 +59,14 @@ STRINGS = {
         "confirm_yes":       "Да",
         "confirm_no":        "Нет",
         "confirm_no_msg":    "(без сообщения)",
-        "confirm_prompt":    "\n❓ Отправить? (yes/no): ",
+        "confirm_prompt":    "\n❓ Отправить? (yes/no, 0 — назад): ",
         "confirm_cancel":    "\n❌ Отменено.",
+        "order_cancelled":   "\n↩️  Возврат в главное меню.",
         "sending":           "\n🎁 Отправка подарка...",
         "cost":              "💰 Стоимость: ⭐ {stars} Stars",
         "success":           "\n✅ ПОДАРОК ОТПРАВЛЕН! 🎉",
         "delivered":         "🎁 Доставлен пользователю {name}",
-        "error":             "\n❌ Ошибка: {msg}",
-        "err_balance":       "💡 Недостаточно Stars. Telegram → Настройки → Telegram Stars",
-        "err_peer":          "💡 Неверный ID. Сначала напишите этому пользователю в Telegram.",
-        "err_disallowed":    "💡 Пользователь запретил получение подарков.",
-        "err_limited":       "💡 Этот подарок закончился в магазине.",
+        "err_unknown":       "Что-то пошло не так.",
         "disconnected":      "\n🔌 Отключено.",
         "again_prompt":      "🔄 Отправить ещё? (yes/no): ",
         "goodbye":           "\n👋 До свидания!",
@@ -72,7 +77,9 @@ STRINGS = {
         "qr_ok":             "\n✅ QR-авторизация успешна!",
         "qr_2fa":            "\n🔐 Требуется пароль двухфакторной аутентификации.",
         "qr_2fa_p":          "🔑 Пароль 2FA: ",
-        "qr_err":            "\n❌ Ошибка QR-авторизации: {e}",
+        "session_reset":     "♻️  Старая сессия удалена. Нужно войти заново.",
+        "login_retry":       "🔁 Пробуем ещё раз...",
+        "login_failed":      "\n❌ Не удалось войти в аккаунт. Перезапустите программу и попробуйте снова.",
         "api_title":         "📋 ШАГ 1: TELEGRAM API",
         "api_hint":          (
             "ℹ️  Получить API_ID и API_HASH на my.telegram.org:\n"
@@ -89,15 +96,41 @@ STRINGS = {
         "session_ok":        "   ✅ Сессия: {name}.session",
         "config_saved":      "💾 Настройки сохранены.",
         "yes_values":        ("yes", "y", "да", "д"),
+        "errors": {
+            "UsernameInvalid":      "Такого username не существует.",
+            "UsernameNotOccupied":  "Username свободен — такого пользователя нет.",
+            "PeerIdInvalid":        "Telegram пока не знает этого пользователя. Сначала напишите ему хотя бы одно сообщение в Telegram.",
+            "BalanceTooLow":        "Недостаточно Telegram Stars на балансе. Пополнить: Telegram → Настройки → Telegram Stars.",
+            "StargiftUsageLimited": "Этот подарок закончился в магазине.",
+            "GiftSendDisallowed":   "Получатель запретил присылать ему подарки.",
+            "AuthKeyUnregistered":  "Сессия входа устарела или была отозвана — нужно войти заново.",
+            "FloodWait":            "Telegram временно ограничил запросы. Подождите немного и попробуйте снова.",
+            "PhoneNumberInvalid":   "Неверный формат номера телефона.",
+            "PhoneCodeInvalid":     "Неверный код из Telegram.",
+            "PasswordHashInvalid":  "Неверный пароль двухфакторной аутентификации.",
+            "StargiftInvalid":      "Такого подарка не существует — проверьте Gift ID.",
+        },
+        "error_substrings": [
+            ("USERNAME_INVALID",       "Такого username не существует."),
+            ("USERNAME_NOT_OCCUPIED",  "Username свободен — такого пользователя нет."),
+            ("PEER_ID_INVALID",        "Telegram пока не знает этого пользователя. Сначала напишите ему хотя бы одно сообщение в Telegram."),
+            ("BALANCE_TOO_LOW",        "Недостаточно Telegram Stars на балансе. Пополнить: Telegram → Настройки → Telegram Stars."),
+            ("STARGIFT_USAGE_LIMITED", "Этот подарок закончился в магазине."),
+            ("GIFT_SEND_DISALLOWED",   "Получатель запретил присылать ему подарки."),
+            ("AUTH_KEY_UNREGISTERED",  "Сессия входа устарела или была отозвана — нужно войти заново."),
+            ("FLOOD_WAIT",             "Telegram временно ограничил запросы. Подождите немного и попробуйте снова."),
+            ("STARGIFT_ID_INVALID",    "Такого подарка не существует — проверьте Gift ID."),
+            ("GIFT_ID_INVALID",        "Такого подарка не существует — проверьте Gift ID."),
+        ],
     },
     "en": {
         "welcome":           "🚀 Welcome to Telegram Gift Sender!",
         "choose_lang":       "🌐 Язык / Language:\n   1) Русский\n   2) English\n",
         "lang_prompt":       "Choose (1/2): ",
         "gifts_title":       "📋 CHOOSE A GIFT",
-        "gifts_custom_id":   "✏️  Enter Gift ID: ",
+        "gifts_custom_id":   "✏️  Enter Gift ID (0 — back): ",
         "gifts_invalid_id":  "❌ ID must contain digits only.",
-        "gifts_prompt":      "🎁 Gift number (1–{n}): ",
+        "gifts_prompt":      "🎁 Gift number (1–{n}, 0/Enter — cancel): ",
         "gifts_invalid":     "❌ Enter a number from 1 to {n}.",
         "gifts_selected":    "   ✅ Selected: {emoji} {name}",
         "login_title":       "📡 ACCOUNT LOGIN",
@@ -111,16 +144,16 @@ STRINGS = {
         "logged_as":         "✅ Logged in as: ",
         "recipient_title":   "📋 RECIPIENT",
         "recipient_hint":    "ℹ️  Username without @ or phone number (+12345678901).",
+        "recipient_back":    "↩️  Enter or 0 — back to gift selection.",
         "recipient_prompt":  "👤 Recipient: ",
         "recipient_search":  "🔍 Searching: {r} ...",
         "recipient_found":   "✅ Found: ",
-        "recipient_err":     "❌ User '{r}' not found: {e}",
         "recipient_tip":     "   Check the username or message them on Telegram first.",
-        "msg_title":         "📋 GIFT MESSAGE  (optional, press Enter to skip)",
+        "msg_title":         "📋 GIFT MESSAGE  (Enter — skip, 0 — back)",
         "msg_prompt":        "💌 Message: ",
         "anon_title":        "📋 ANONYMITY",
         "anon_hint":         "ℹ️  Hide your name from the recipient?",
-        "anon_prompt":       "🕵️  Anonymous? (yes/no, Enter = no): ",
+        "anon_prompt":       "🕵️  Anonymous? (yes/no, Enter = no, 0 = back): ",
         "confirm_title":     "✅ REVIEW YOUR ORDER",
         "confirm_gift":      "🎁 Gift:       ",
         "confirm_rcpt":      "📤 Recipient:  ",
@@ -129,17 +162,14 @@ STRINGS = {
         "confirm_yes":       "Yes",
         "confirm_no":        "No",
         "confirm_no_msg":    "(no message)",
-        "confirm_prompt":    "\n❓ Send? (yes/no): ",
+        "confirm_prompt":    "\n❓ Send? (yes/no, 0 — back): ",
         "confirm_cancel":    "\n❌ Cancelled.",
+        "order_cancelled":   "\n↩️  Back to main menu.",
         "sending":           "\n🎁 Sending gift...",
         "cost":              "💰 Cost: ⭐ {stars} Stars",
         "success":           "\n✅ GIFT SENT! 🎉",
         "delivered":         "🎁 Delivered to {name}",
-        "error":             "\n❌ Error: {msg}",
-        "err_balance":       "💡 Not enough Stars. Telegram → Settings → Telegram Stars",
-        "err_peer":          "💡 Invalid ID. Send this user a message on Telegram first.",
-        "err_disallowed":    "💡 The user has disabled gift receiving.",
-        "err_limited":       "💡 This gift is sold out in the store.",
+        "err_unknown":       "Something went wrong.",
         "disconnected":      "\n🔌 Disconnected.",
         "again_prompt":      "🔄 Send another? (yes/no): ",
         "goodbye":           "\n👋 Goodbye!",
@@ -150,7 +180,9 @@ STRINGS = {
         "qr_ok":             "\n✅ QR authorization successful!",
         "qr_2fa":            "\n🔐 Two-factor authentication required.",
         "qr_2fa_p":          "🔑 2FA password: ",
-        "qr_err":            "\n❌ QR authorization error: {e}",
+        "session_reset":     "♻️  Old session removed. You need to log in again.",
+        "login_retry":       "🔁 Trying again...",
+        "login_failed":      "\n❌ Could not log in. Restart the program and try again.",
         "api_title":         "📋 STEP 1: TELEGRAM API",
         "api_hint":          (
             "ℹ️  Get API_ID and API_HASH at my.telegram.org:\n"
@@ -167,6 +199,32 @@ STRINGS = {
         "session_ok":        "   ✅ Session: {name}.session",
         "config_saved":      "💾 Settings saved.",
         "yes_values":        ("yes", "y"),
+        "errors": {
+            "UsernameInvalid":      "That username doesn't exist.",
+            "UsernameNotOccupied":  "That username is free — no such user.",
+            "PeerIdInvalid":        "Telegram doesn't know this user yet. Message them at least once on Telegram first.",
+            "BalanceTooLow":        "Not enough Telegram Stars. Top up: Telegram → Settings → Telegram Stars.",
+            "StargiftUsageLimited": "This gift is sold out.",
+            "GiftSendDisallowed":   "The recipient has disabled gifts.",
+            "AuthKeyUnregistered":  "The saved login session expired or was revoked — need to log in again.",
+            "FloodWait":            "Telegram is temporarily rate-limiting requests. Wait a bit and try again.",
+            "PhoneNumberInvalid":   "Invalid phone number format.",
+            "PhoneCodeInvalid":     "Invalid Telegram code.",
+            "PasswordHashInvalid":  "Invalid 2FA password.",
+            "StargiftInvalid":      "That gift doesn't exist — check the Gift ID.",
+        },
+        "error_substrings": [
+            ("USERNAME_INVALID",       "That username doesn't exist."),
+            ("USERNAME_NOT_OCCUPIED",  "That username is free — no such user."),
+            ("PEER_ID_INVALID",        "Telegram doesn't know this user yet. Message them at least once on Telegram first."),
+            ("BALANCE_TOO_LOW",        "Not enough Telegram Stars. Top up: Telegram → Settings → Telegram Stars."),
+            ("STARGIFT_USAGE_LIMITED", "This gift is sold out."),
+            ("GIFT_SEND_DISALLOWED",   "The recipient has disabled gifts."),
+            ("AUTH_KEY_UNREGISTERED",  "The saved login session expired or was revoked — need to log in again."),
+            ("FLOOD_WAIT",             "Telegram is temporarily rate-limiting requests. Wait a bit and try again."),
+            ("STARGIFT_ID_INVALID",    "That gift doesn't exist — check the Gift ID."),
+            ("GIFT_ID_INVALID",        "That gift doesn't exist — check the Gift ID."),
+        ],
     },
 }
 
@@ -180,9 +238,9 @@ GIFTS_DATA = [
     {"ru": "Первоапрельский мишка", "en": "April Fools Bear",     "emoji": "🐻", "stars": 50,  "id": 5893356958802511476},
     {"ru": "Пасхальный мишка",      "en": "Easter Bear",          "emoji": "🐻", "stars": 50,  "id": 5969796561943660080},
     {"ru": "Первомайский мишка",    "en": "May Day Bear",         "emoji": "🐻", "stars": 50,  "id": 6026193266406327981},
+    {"ru": "Футбольный мишка",      "en": "Soccer Bear",          "emoji": "⚽", "stars": 50,  "id": 5974210632977745012},
     {"ru": "Кастомный ID",          "en": "Custom ID",            "emoji": "✏️", "stars": None, "id": None},
 ]
-
 
 
 def load_config() -> dict:
@@ -202,6 +260,21 @@ def save_config(data: dict):
     except Exception as e:
         print(f"⚠️  {e}")
 
+
+def friendly_error(e: Exception, S: dict) -> str:
+    raw = str(e) or type(e).__name__
+    name = type(e).__name__
+
+    simple = S["errors"].get(name)
+    if simple is None:
+        for key, text in S["error_substrings"]:
+            if key in raw:
+                simple = text
+                break
+    if simple is None:
+        simple = S["err_unknown"]
+
+    return f"❌ {simple}\n   ({name}: {raw})"
 
 
 def input_with_counter(prompt: str, max_len: int) -> str:
@@ -252,21 +325,17 @@ def input_with_counter(prompt: str, max_len: int) -> str:
     return "".join(text)
 
 
-
 def print_qr_console(url: str):
-    """Печатает QR-код прямо в консоль символами █ / пробел."""
     import qrcode
     qr = qrcode.QRCode(border=1)
     qr.add_data(url)
     qr.make(fit=True)
-    # get_matrix() возвращает список списков bool
     matrix = qr.get_matrix()
     print()
     for row in matrix:
         line = "".join("██" if cell else "  " for cell in row)
         print(f"  {line}")
     print()
-
 
 
 async def authorize_qr(app, S: dict):
@@ -320,13 +389,14 @@ async def authorize_qr(app, S: dict):
                 pwd = input(S["qr_2fa_p"]).strip()
                 await app.check_password(pwd)
                 return True
+            print(friendly_error(e, S))
             return True
 
     print(S["qr_expired"])
     return False
 
 
-def choose_gift(S: dict, lang: str) -> int:
+def print_gift_menu(S: dict, lang: str):
     print()
     print("=" * 60)
     print(S["gifts_title"])
@@ -337,31 +407,40 @@ def choose_gift(S: dict, lang: str) -> int:
         print(f"   {i:>2}) {g['emoji']} {name:<26} {stars}")
     print("-" * 60)
 
+
+def choose_gift(S: dict, lang: str):
+    print_gift_menu(S, lang)
     n = len(GIFTS_DATA)
     while True:
         s = input(S["gifts_prompt"].format(n=n)).strip()
+        if not s or is_back(s):
+            return None
+
         if s.isdigit() and 1 <= int(s) <= n:
             gift = GIFTS_DATA[int(s) - 1]
             if gift["id"] is None:
                 while True:
                     cid = input(S["gifts_custom_id"]).strip()
+                    if not cid or is_back(cid):
+                        print_gift_menu(S, lang)
+                        break
                     if cid.isdigit():
-                        return int(cid)
+                        print(S["gifts_selected"].format(emoji=gift["emoji"], name=f"ID {cid}"))
+                        return int(cid), f"{gift['emoji']} ID {cid}"
                     print(S["gifts_invalid_id"])
+                continue
             else:
                 print(S["gifts_selected"].format(emoji=gift["emoji"], name=gift[lang]))
-                return gift["id"]
+                return gift["id"], f"{gift['emoji']} {gift[lang]}"
         print(S["gifts_invalid"].format(n=n))
 
 
 def get_credentials(S: dict) -> tuple[int, str, str]:
     config = load_config()
 
-    # If we already have valid saved credentials — use silently
     if config.get("api_id") and config.get("api_hash"):
         return config["api_id"], config["api_hash"], config.get("session_name", "gift_session")
 
-    # First-time setup
     print()
     print("=" * 60)
     print(S["api_title"])
@@ -392,156 +471,232 @@ def get_credentials(S: dict) -> tuple[int, str, str]:
     return api_id, api_hash, session_name
 
 
-async def send_gift(api_id: int, api_hash: str, session_name: str, S: dict):
+def format_user_name(user) -> str:
+    uname = user.first_name or ""
+    if user.last_name:
+        uname += f" {user.last_name}"
+    if user.username:
+        uname += f" (@{user.username})"
+    return uname
+
+
+async def login(api_id: int, api_hash: str, session_name: str, S: dict):
     from pyrogram import Client
-    from pyrogram.raw import functions, types as raw_types
+    from pyrogram.errors import AuthKeyUnregistered
 
     workdir      = APPDATA_DIR
     session_path = os.path.join(workdir, session_name + ".session")
-    already_auth = os.path.exists(session_path)
 
     print()
     print("=" * 60)
     print(S["login_title"])
     print("=" * 60)
 
-    login_method = "phone"
-    if not already_auth:
-        print()
-        print(S["login_method"])
-        print("-" * 60)
-        while True:
-            m = input(S["login_method_p"]).strip()
-            if m in ("1", "2"):
-                login_method = "phone" if m == "1" else "qr"
-                break
-            print(S["login_method_err"])
-
-    import builtins
-    _orig_input     = builtins.input
-    _login_choice   = {"method": login_method}
-
-    def _patched_input(prompt=""):
-        if "phone number" in prompt.lower() or "bot token" in prompt.lower():
-            if _login_choice["method"] == "qr":
-                return "qrcode"
+    max_attempts = 3
+    for attempt in range(1, max_attempts + 1):
+        already_auth = os.path.exists(session_path)
+        login_method = "phone"
+        if not already_auth:
             print()
-            print(S["phone_hint"])
+            print(S["login_method"])
             print("-" * 60)
-            return _orig_input(S["phone_prompt"]).strip()
-        if "code" in prompt.lower():
-            return _orig_input(S["code_prompt"]).strip()
-        if "password" in prompt.lower():
-            return _orig_input(S["password_prompt"]).strip()
-        return _orig_input(prompt)
+            while True:
+                m = input(S["login_method_p"]).strip()
+                if m in ("1", "2"):
+                    login_method = "phone" if m == "1" else "qr"
+                    break
+                print(S["login_method_err"])
 
-    builtins.input = _patched_input
+        import builtins
+        _orig_input = builtins.input
 
-    app = Client(
-        name=session_name,
-        api_id=api_id,
-        api_hash=api_hash,
-        workdir=workdir,
-    )
+        def _patched_input(prompt=""):
+            if "phone number" in prompt.lower() or "bot token" in prompt.lower():
+                if login_method == "qr":
+                    return "qrcode"
+                print()
+                print(S["phone_hint"])
+                print("-" * 60)
+                return _orig_input(S["phone_prompt"]).strip()
+            if "code" in prompt.lower():
+                return _orig_input(S["code_prompt"]).strip()
+            if "password" in prompt.lower():
+                return _orig_input(S["password_prompt"]).strip()
+            return _orig_input(prompt)
 
-    if login_method == "qr" and not already_auth:
-        builtins.input = _orig_input
-        await app.connect()
+        builtins.input = _patched_input
+        app = Client(name=session_name, api_id=api_id, api_hash=api_hash, workdir=workdir)
+
         try:
-            ok = await authorize_qr(app, S)
-            if not ok:
+            if login_method == "qr" and not already_auth:
+                builtins.input = _orig_input
+                await app.connect()
+                ok = await authorize_qr(app, S)
+                if not ok:
+                    try:
+                        await app.disconnect()
+                    except Exception:
+                        pass
+                    if attempt < max_attempts:
+                        print(S["login_retry"])
+                        continue
+                    print(S["login_failed"])
+                    return None
+                await app.storage.save()
+                print(S["qr_ok"])
+                me = await app.get_me()
+            else:
+                await app.start()
+                builtins.input = _orig_input
+                me = await app.get_me()
+
+        except AuthKeyUnregistered as e:
+            builtins.input = _orig_input
+            print(friendly_error(e, S))
+            try:
                 await app.disconnect()
+            except Exception:
+                pass
+            for ext in ("", "-journal", "-wal", "-shm"):
+                p = session_path + ext
+                if os.path.exists(p):
+                    try:
+                        os.remove(p)
+                    except OSError:
+                        pass
+            print(S["session_reset"])
+            if attempt < max_attempts:
+                print(S["login_retry"])
+                continue
+            print(S["login_failed"])
+            return None
+
+        except Exception as e:
+            builtins.input = _orig_input
+            print(friendly_error(e, S))
+            try:
+                await app.disconnect()
+            except Exception:
+                pass
+            if attempt < max_attempts:
+                print(S["login_retry"])
+                continue
+            print(S["login_failed"])
+            return None
+
+        finally:
+            builtins.input = _orig_input
+
+        display_name = format_user_name(me)
+        print(f"\n{S['logged_as']}{display_name}")
+        return app
+
+    print(S["login_failed"])
+    return None
+
+
+async def run_order(app, S: dict, lang: str):
+    STEP_GIFT, STEP_RECIPIENT, STEP_MESSAGE, STEP_ANON, STEP_CONFIRM, STEP_SEND = range(6)
+
+    gift_id = gift_label = None
+    recipient_user = recipient_display = None
+    message_text = ""
+    hide_name = False
+
+    step = STEP_GIFT
+    while True:
+        if step == STEP_GIFT:
+            picked = choose_gift(S, lang)
+            if picked is None:
+                print(S["order_cancelled"])
                 return
-            await app.storage.save()
-        except Exception as e:
-            print(S["qr_err"].format(e=e))
-            await app.disconnect()
+            gift_id, gift_label = picked
+            step = STEP_RECIPIENT
+
+        elif step == STEP_RECIPIENT:
+            print()
+            print("=" * 60)
+            print(S["recipient_title"])
+            print("-" * 60)
+            print(S["recipient_hint"])
+            print(S["recipient_back"])
+            print("-" * 60)
+            raw = input(S["recipient_prompt"]).strip().lstrip("@")
+            if not raw or is_back(raw):
+                step = STEP_GIFT
+                continue
+
+            print(S["recipient_search"].format(r=raw))
+            try:
+                user = await app.get_users(raw)
+            except Exception as e:
+                print(friendly_error(e, S))
+                print(S["recipient_tip"])
+                continue
+
+            recipient_user = user
+            recipient_display = format_user_name(user)
+            print(f"{S['recipient_found']}{recipient_display}")
+            step = STEP_MESSAGE
+
+        elif step == STEP_MESSAGE:
+            print()
+            print("=" * 60)
+            print(S["msg_title"])
+            print("-" * 60)
+            msg = input_with_counter(S["msg_prompt"], MAX_MSG_LEN)
+            if is_back(msg):
+                step = STEP_RECIPIENT
+                continue
+            message_text = msg
+            step = STEP_ANON
+
+        elif step == STEP_ANON:
+            print()
+            print("=" * 60)
+            print(S["anon_title"])
+            print("-" * 60)
+            print(S["anon_hint"])
+            print("-" * 60)
+            raw = input(S["anon_prompt"]).strip().lower()
+            if is_back(raw):
+                step = STEP_MESSAGE
+                continue
+            hide_name = raw in S["yes_values"]
+            step = STEP_CONFIRM
+
+        elif step == STEP_CONFIRM:
+            print()
+            print("=" * 60)
+            print(S["confirm_title"])
+            print("-" * 60)
+            print(f"{S['confirm_gift']}{gift_label}")
+            print(f"{S['confirm_rcpt']}{recipient_display}")
+            print(f"{S['confirm_msg']}{message_text or S['confirm_no_msg']}")
+            print(f"{S['confirm_anon']}{S['confirm_yes'] if hide_name else S['confirm_no']}")
+            print("-" * 60)
+
+            raw = input(S["confirm_prompt"]).strip().lower()
+            if is_back(raw):
+                step = STEP_ANON
+                continue
+            if raw in S["yes_values"]:
+                step = STEP_SEND
+            else:
+                print(S["confirm_cancel"])
+                return
+
+        elif step == STEP_SEND:
+            await send_gift_order(app, S, gift_id, recipient_user, message_text, hide_name)
             return
-        print(S["qr_ok"])
-        me = await app.get_me()
-    else:
-        await app.start()
-        builtins.input = _orig_input
-        me = await app.get_me()
 
-    name_parts = [me.first_name or ""]
-    if me.last_name:
-        name_parts.append(me.last_name)
-    display_name = " ".join(name_parts)
-    if me.username:
-        display_name += f" (@{me.username})"
 
-    print(f"\n{S['logged_as']}{display_name}")
+async def send_gift_order(app, S: dict, gift_id: int, user, message_text: str, hide_name: bool):
+    from pyrogram.raw import functions, types as raw_types
 
+    print(S["sending"])
     try:
-        # Gift choice
-        gift_id = choose_gift(S, "ru" if S is STRINGS["ru"] else "en")
-
-        # Recipient
-        print()
-        print("=" * 60)
-        print(S["recipient_title"])
-        print("-" * 60)
-        print(S["recipient_hint"])
-        print("-" * 60)
-        recipient = input(S["recipient_prompt"]).strip().lstrip("@")
-
-        print(S["recipient_search"].format(r=recipient))
-        try:
-            user = await app.get_users(recipient)
-            uname = user.first_name or ""
-            if user.last_name:
-                uname += f" {user.last_name}"
-            if user.username:
-                uname += f" (@{user.username})"
-            print(f"{S['recipient_found']}{uname}")
-        except Exception as e:
-            print(S["recipient_err"].format(r=recipient, e=e))
-            print(S["recipient_tip"])
-            return
-
-        # Message
-        print()
-        print("=" * 60)
-        print(S["msg_title"])
-        print("-" * 60)
-        message_text = input_with_counter(S["msg_prompt"], MAX_MSG_LEN)
-
-        # Anonymity
-        print()
-        print("=" * 60)
-        print(S["anon_title"])
-        print("-" * 60)
-        print(S["anon_hint"])
-        print("-" * 60)
-        hide_name = input(S["anon_prompt"]).strip().lower() in S["yes_values"]
-
-        # Resolve gift label
-        lang_key  = "ru" if S is STRINGS["ru"] else "en"
-        gift_info = next((g for g in GIFTS_DATA if g["id"] == gift_id), None)
-        gift_label = (
-            f"{gift_info['emoji']} {gift_info[lang_key]}" if gift_info
-            else f"ID {gift_id}"
-        )
-
-        # Confirmation
-        print()
-        print("=" * 60)
-        print(S["confirm_title"])
-        print("-" * 60)
-        print(f"{S['confirm_gift']}{gift_label}")
-        print(f"{S['confirm_rcpt']}{uname}")
-        print(f"{S['confirm_msg']}{message_text or S['confirm_no_msg']}")
-        print(f"{S['confirm_anon']}{S['confirm_yes'] if hide_name else S['confirm_no']}")
-        print("-" * 60)
-
-        if input(S["confirm_prompt"]).strip().lower() not in S["yes_values"]:
-            print(S["confirm_cancel"])
-            return
-
-        print(S["sending"])
-
-        peer        = await app.resolve_peer(user.id)
+        peer = await app.resolve_peer(user.id)
         message_obj = (
             raw_types.TextWithEntities(text=message_text, entities=[])
             if message_text else None
@@ -554,32 +709,58 @@ async def send_gift(api_id: int, api_hash: str, session_name: str, S: dict):
             message=message_obj,
         )
 
-        payment_form = await app.invoke(
-            functions.payments.GetPaymentForm(invoice=invoice)
-        )
+        payment_form = await app.invoke(functions.payments.GetPaymentForm(invoice=invoice))
 
         if hasattr(payment_form, "invoice") and payment_form.invoice.prices:
             stars = payment_form.invoice.prices[0].amount
             print(S["cost"].format(stars=stars))
 
-        await app.invoke(
-            functions.payments.SendStarsForm(
-                form_id=payment_form.form_id,
-                invoice=invoice,
-            )
-        )
+        await app.invoke(functions.payments.SendStarsForm(
+            form_id=payment_form.form_id,
+            invoice=invoice,
+        ))
 
         print(S["success"])
         print(S["delivered"].format(name=user.first_name))
 
     except Exception as e:
-        msg = str(e)
-        print(S["error"].format(msg=msg))
-        if "BALANCE_TOO_LOW"       in msg: print(S["err_balance"])
-        elif "PEER_ID_INVALID"     in msg: print(S["err_peer"])
-        elif "GIFT_SEND_DISALLOWED" in msg: print(S["err_disallowed"])
-        elif "STARGIFT_USAGE_LIMITED" in msg: print(S["err_limited"])
+        print(friendly_error(e, S))
 
+
+async def main():
+    if sys.platform.startswith("win"):
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+    print()
+    print(STRINGS["ru"]["choose_lang"])
+    while True:
+        choice = input(STRINGS["ru"]["lang_prompt"]).strip()
+        if choice == "1":
+            S = STRINGS["ru"]
+            lang = "ru"
+            break
+        elif choice == "2":
+            S = STRINGS["en"]
+            lang = "en"
+            break
+
+    print(f"\n{S['welcome']}\n")
+
+    api_id, api_hash, session_name = get_credentials(S)
+
+    app = await login(api_id, api_hash, session_name, S)
+    if app is None:
+        input()
+        return
+
+    try:
+        while True:
+            await run_order(app, S, lang)
+            print()
+            if input(S["again_prompt"]).strip().lower() not in S["yes_values"]:
+                print(S["goodbye"])
+                break
+            print()
     finally:
         try:
             await app.stop()
@@ -590,36 +771,6 @@ async def send_gift(api_id: int, api_hash: str, session_name: str, S: dict):
                 pass
         print(S["disconnected"])
         print("=" * 60)
-
-
-
-async def main():
-    if sys.platform.startswith("win"):
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
-    # Language selection
-    print()
-    print(STRINGS["ru"]["choose_lang"])
-    while True:
-        choice = input(STRINGS["ru"]["lang_prompt"]).strip()
-        if choice == "1":
-            S = STRINGS["ru"]
-            break
-        elif choice == "2":
-            S = STRINGS["en"]
-            break
-
-    print(f"\n{S['welcome']}\n")
-
-    api_id, api_hash, session_name = get_credentials(S)
-
-    while True:
-        await send_gift(api_id, api_hash, session_name, S)
-        print()
-        if input(S["again_prompt"]).strip().lower() not in S["yes_values"]:
-            print(S["goodbye"])
-            break
-        print()
 
 
 if __name__ == "__main__":
