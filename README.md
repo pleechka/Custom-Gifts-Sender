@@ -1,4 +1,4 @@
-# 🎁 Custom Gifts Sender
+# 🎁 Deleted Gifts Sender
 
 ---
 
